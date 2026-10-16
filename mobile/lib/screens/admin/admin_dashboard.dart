@@ -492,7 +492,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "User #${item.userId}",
+                    item.userName,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -501,7 +501,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    "In: ${item.checkIn ?? '-'}  •  Out: ${item.checkout ?? '-'}",
+                    "${item.userRole.toUpperCase()}  •  In: ${item.checkIn ?? '-'}  •  Out: ${item.checkout ?? '-'}",
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -530,6 +530,41 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAttendanceGroup(
+    String title,
+    List<AdminAttendanceModel> items,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 10),
+          child: Text(
+            "$title (${items.length})",
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              "No $title attendance today",
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textMuted,
+              ),
+            ),
+          )
+        else
+          ...items.take(4).map(_buildAttendanceItem),
+      ],
     );
   }
 
@@ -584,6 +619,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
       );
     }
+
+    final studentAttendance = attendance
+        .where((item) => item.userRole.toLowerCase() == "student")
+        .toList();
+    final staffAttendance = attendance
+        .where((item) => item.userRole.toLowerCase() == "staff")
+        .toList();
 
     final data = dashboard!;
 
@@ -789,8 +831,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 ),
               )
-            else
-              ...attendance.take(8).map(_buildAttendanceItem),
+            else ...[
+              _buildAttendanceGroup("Students", studentAttendance),
+              const SizedBox(height: 8),
+              _buildAttendanceGroup("Staff", staffAttendance),
+            ],
 
             const SizedBox(height: 24),
           ],

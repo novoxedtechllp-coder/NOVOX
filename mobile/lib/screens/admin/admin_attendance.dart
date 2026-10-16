@@ -139,7 +139,9 @@ class _AdminAttendanceState extends State<AdminAttendance> {
                   radius: 22,
                   backgroundColor: AppColors.primarySoft,
                   child: Text(
-                    record.userId.toString(),
+                    record.userName.trim().isEmpty
+                        ? "?"
+                        : record.userName.trim()[0].toUpperCase(),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: AppColors.primary,
@@ -153,7 +155,7 @@ class _AdminAttendanceState extends State<AdminAttendance> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "User #${record.userId}",
+                        record.userName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -162,7 +164,7 @@ class _AdminAttendanceState extends State<AdminAttendance> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        record.attendanceStatus.replaceAll("_", " "),
+                        "${record.userRole[0].toUpperCase()}${record.userRole.substring(1)} · ${record.attendanceStatus.replaceAll("_", " ")}",
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -252,15 +254,25 @@ class _AdminAttendanceState extends State<AdminAttendance> {
       );
     }
 
-    final presentCount = records.length;
-    final lateCount = records
-        .where((r) => r.arrivalStatus.toUpperCase() == "LATE")
-        .length;
+    final students = records
+        .where((record) => record.userRole.toLowerCase() == "student")
+        .toList();
+    final staff = records
+        .where((record) => record.userRole.toLowerCase() == "staff")
+        .toList();
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
         title: const Text("Today's Attendance"),
+        bottom: TabBar(
+          tabs: [
+            Tab(text: "Students (${students.length})"),
+            Tab(text: "Staff (${staff.length})"),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: "Refresh",
@@ -268,102 +280,96 @@ class _AdminAttendanceState extends State<AdminAttendance> {
             onPressed: loadAttendance,
           ),
         ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: loadAttendance,
-        color: AppColors.primary,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+        ),
+        body: TabBarView(
           children: [
-            // Quick summary banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                gradient: AppColors.heroGradient,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Column(
-                    children: [
-                      const Text(
-                        "Total Check-ins",
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "$presentCount",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    height: 30,
-                    width: 1,
-                    color: Colors.white24,
-                  ),
-                  Column(
-                    children: [
-                      const Text(
-                        "Late Arrivals",
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "$lateCount",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            if (records.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(40),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.cardBorder),
-                ),
-                child: Center(
-                  child: Column(
-                    children: const [
-                      Icon(
-                        Icons.event_busy_rounded,
-                        size: 48,
-                        color: AppColors.textMuted,
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        "No attendance records today",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              ...records.map(attendanceCard),
+            attendanceTab(students, "student"),
+            attendanceTab(staff, "staff"),
           ],
         ),
       ),
+    );
+  }
+
+  Widget attendanceTab(List<AdminAttendanceModel> items, String groupName) {
+    final lateCount = items
+        .where((record) => record.arrivalStatus.toUpperCase() == "LATE")
+        .length;
+
+    return RefreshIndicator(
+      onRefresh: loadAttendance,
+      color: AppColors.primary,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              gradient: AppColors.heroGradient,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _summaryValue("$groupName Check-ins", items.length),
+                Container(height: 30, width: 1, color: Colors.white24),
+                _summaryValue("Late Arrivals", lateCount),
+              ],
+            ),
+          ),
+          if (items.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.event_busy_rounded,
+                      size: 48,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "No $groupName attendance records today",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...items.map(attendanceCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryValue(String label, int value) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          "$value",
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }

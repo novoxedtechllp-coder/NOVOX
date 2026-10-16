@@ -94,9 +94,11 @@ def get_today_attendance(db: Session):
     today = date.today()
 
     records = (
-        db.query(Attendance)
+        db.query(Attendance, User)
+        .join(User, User.id == Attendance.user_id)
         .filter(
-            Attendance.attendance_date == today
+            Attendance.attendance_date == today,
+            User.role.in_(("student", "staff")),
         )
         .order_by(
             Attendance.check_in.desc()
@@ -108,6 +110,8 @@ def get_today_attendance(db: Session):
         {
             "attendance_id": record.id,
             "user_id": record.user_id,
+            "user_name": user.name,
+            "user_role": user.role,
             "attendance_date": record.attendance_date,
             "check_in": record.check_in,
             "checkout": record.checkout,
@@ -115,7 +119,7 @@ def get_today_attendance(db: Session):
             "arrival_status": record.arrival_status,
             "check_in_distance": record.check_in_distance,
         }
-        for record in records
+        for record, user in records
     ]
 
 

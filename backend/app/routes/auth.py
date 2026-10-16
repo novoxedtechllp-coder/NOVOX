@@ -1,3 +1,6 @@
+
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -9,6 +12,8 @@ from app.core.security import (
 from app.models.user import User
 from app.schemas.auth import LoginRequest, LoginResponse
 
+
+logger = logging.getLogger("novox.auth")
 
 router = APIRouter(
     prefix="/auth",
@@ -24,14 +29,15 @@ def login(
     request: LoginRequest,
     db: Session = Depends(get_db),
 ):
+    email = request.email.strip().lower()
 
     user = (
         db.query(User)
-        .filter(User.email == request.email)
+        .filter(User.email == email)
         .first()
     )
 
-    if not user:
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -43,10 +49,21 @@ def login(
             detail="User account is inactive",
         )
 
-    if not verify_password(
-        request.password,
-        user.password_hash,
-    ):
+    try:
+        password_valid = verify_password(
+            request.password,
+            user.password_hash,
+        )
+    except Exception:
+        logger.exception(
+            "Password verification failed unexpectedly."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to process login",
+        )
+
+    if not password_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",

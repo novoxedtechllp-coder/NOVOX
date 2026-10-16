@@ -17,6 +17,8 @@ class DashboardSummary(BaseModel):
 class AttendanceMonitorItem(BaseModel):
     attendance_id: int
     user_id: int
+    user_name: str
+    user_role: str
     attendance_date: date
     check_in: datetime | None
     checkout: datetime | None

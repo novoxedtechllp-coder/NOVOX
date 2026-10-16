@@ -1,7 +1,9 @@
+
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 from passlib.context import CryptContext
+from passlib.exc import UnknownHashError, InvalidHashError
 
 from app.core.config import settings
 
@@ -13,6 +15,9 @@ pwd_context = CryptContext(
 
 
 def hash_password(password: str) -> str:
+    if not password:
+        raise ValueError("Password cannot be empty.")
+
     return pwd_context.hash(password)
 
 
@@ -20,13 +25,23 @@ def verify_password(
     plain_password: str,
     hashed_password: str,
 ) -> bool:
-    return pwd_context.verify(
-        plain_password,
-        hashed_password,
-    )
+    if not plain_password or not hashed_password:
+        return False
+
+    try:
+        return pwd_context.verify(
+            plain_password,
+            hashed_password,
+        )
+    except (UnknownHashError, InvalidHashError, ValueError):
+        return False
 
 
 def create_access_token(data: dict) -> str:
+    if not settings.JWT_SECRET_KEY:
+        raise RuntimeError(
+            "JWT_SECRET_KEY is not configured."
+        )
 
     payload = data.copy()
 
