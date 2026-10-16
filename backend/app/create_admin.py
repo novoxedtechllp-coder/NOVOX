@@ -1,106 +1,87 @@
+
+import getpass
+import os
+
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.database.connection import SessionLocal
-from app.database.base import Base
-from app.database.connection import engine
-
-# Import ALL models so SQLAlchemy knows about all tables
 from app.models.user import User
-from app.models.student import Student
-from app.models.staff import Staff
-from app.models.attendance import Attendance
-from app.models.attendance_break import AttendanceBreak
-from app.models.geofence import GeofenceSettings
-from app.models.fee import FeeStructure, StudentFee
-from app.models.payment import Payment
-from app.models.salary import SalaryStructure
-from app.models.salary_slip import SalarySlip
-
-
-def create_tables():
-    print("Creating NOVOX database tables...")
-
-    Base.metadata.create_all(
-        bind=engine
-    )
-
-    print("Database tables created successfully.")
 
 
 def create_admin():
+    if os.getenv("APP_ENV", "").strip().lower() != "production":
+        raise SystemExit(
+            "Refusing to create a production administrator unless "
+            "APP_ENV=production is set."
+        )
+
+    email = input("Administrator email: ").strip().lower()
+    name = input("Administrator full name: ").strip()
+    phone = input("Phone number (optional): ").strip() or None
+
+    try:
+        email = str(TypeAdapter(EmailStr).validate_python(email))
+    except ValidationError:
+        raise SystemExit("Enter a valid email address.")
+
+    if not name or len(name) > 100:
+        raise SystemExit("Name is required and must be at most 100 characters.")
+
+    if len(email) > 150:
+        raise SystemExit("Email must be at most 150 characters.")
+
+    if phone and len(phone) > 20:
+        raise SystemExit("Phone number must be at most 20 characters.")
+
+    password = getpass.getpass("New password (minimum 12 characters): ")
+    confirmation = getpass.getpass("Confirm password: ")
+
+    if password != confirmation:
+        raise SystemExit("Passwords do not match.")
+
+    if len(password) < 12:
+        raise SystemExit("Use at least 12 characters for the password.")
 
     db: Session = SessionLocal()
 
     try:
-
-        existing_admin = (
+        existing_user = (
             db.query(User)
-            .filter(
-                User.email == "admin@novox.com"
-            )
+            .filter(User.email == email)
             .first()
         )
 
-        if existing_admin:
-            print("Admin already exists.")
-            return
+        if existing_user:
+            raise SystemExit(
+                "An account with this email already exists. "
+                "No changes were made."
+            )
 
         admin = User(
-            name="NOVOX Administrator",
-            email="admin@novox.com",
-            password_hash=hash_password(
-                "Admin@123"
-            ),
+            name=name,
+            email=email,
+            password_hash=hash_password(password),
             role="admin",
-            phone=None,
+            phone=phone,
             is_active=True,
         )
 
         db.add(admin)
         db.commit()
 
-        print(
-            "NOVOX admin created successfully."
-        )
+        print(f"Administrator created successfully: {email}")
 
-        print(
-            "Email: admin@novox.com"
-        )
-
-        print(
-            "Password: Admin@123"
-        )
-
-    except Exception as e:
-
+    except SystemExit:
         db.rollback()
-
-        print(
-            "Failed to create admin."
-        )
-
-        print(
-            f"Error: {e}"
-        )
-
         raise
-
+    except Exception:
+        db.rollback()
+        raise
     finally:
-
         db.close()
 
 
 if __name__ == "__main__":
-
-    # ---------------------------------------------------------
-    # STEP 1: CREATE DATABASE TABLES
-    # ---------------------------------------------------------
-
-    create_tables()
-
-    # ---------------------------------------------------------
-    # STEP 2: CREATE ADMIN USER
-    # ---------------------------------------------------------
-
     create_admin()
