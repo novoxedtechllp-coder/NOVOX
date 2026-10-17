@@ -184,13 +184,13 @@ class _StudentAttendanceScreenState
                 buildInfo(
                   icon: Icons.coffee_rounded,
                   title: "Break",
-                  value: "${item.totalBreakMinutes} min",
+                  value: formatMinutes(item.totalBreakMinutes),
                 ),
                 buildInfo(
                   icon: Icons.schedule_rounded,
                   title: "Work",
                   value: item.totalWorkMinutes != null
-                      ? "${item.totalWorkMinutes} min"
+                      ? formatMinutes(item.totalWorkMinutes!)
                       : "-",
                 ),
               ],
@@ -204,6 +204,9 @@ class _StudentAttendanceScreenState
   // ============================================================
   // INFORMATION ITEM
   // ============================================================
+
+  String formatMinutes(int minutes) =>
+      '${minutes ~/ 60}h ${(minutes % 60).toString().padLeft(2, '0')}m';
 
   Widget buildInfo({
     required IconData icon,

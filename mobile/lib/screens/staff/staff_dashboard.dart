@@ -87,20 +87,19 @@ class _StaffDashboardState extends State<StaffDashboard> {
   }
 
   String formatDuration(Duration duration) {
-    final hours = duration.inHours.toString().padLeft(2, '0');
-    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
-    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
-    return '$hours:$minutes:$seconds';
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
   }
 
-  int breakMinutesToday() {
+  Duration breakTimeToday() {
     final record = todayAttendance;
-    if (record == null) return 0;
-    var minutes = record.totalBreakMinutes;
+    if (record == null) return Duration.zero;
+    var duration = Duration(minutes: record.totalBreakMinutes);
     if (record.activeBreak && record.currentBreakStart != null) {
-      try { minutes += DateTime.now().difference(DateTime.parse(record.currentBreakStart!)).inMinutes; } catch (_) {}
+      try { duration += DateTime.now().difference(DateTime.parse(record.currentBreakStart!)); } catch (_) {}
     }
-    return minutes;
+    return duration;
   }
 
   Future<void> loadDashboard() async {
@@ -453,7 +452,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
             children: [
               buildAttendanceInfo(
                 "Break Time",
-                "${breakMinutesToday()} min",
+                formatDuration(breakTimeToday()),
                 Icons.coffee_rounded,
                 AppColors.warning,
               ),

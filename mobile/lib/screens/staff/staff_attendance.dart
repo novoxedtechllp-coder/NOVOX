@@ -296,13 +296,13 @@ class _StaffAttendanceScreenState
 
                 infoItem(
                   "Break",
-                  "${item.totalBreakMinutes} min",
+                  formatMinutes(item.totalBreakMinutes),
                 ),
 
                 infoItem(
                   "Work",
                   item.totalWorkMinutes != null
-                      ? "${item.totalWorkMinutes} min"
+                      ? formatMinutes(item.totalWorkMinutes!)
                       : "-",
                 ),
               ],
@@ -316,6 +316,9 @@ class _StaffAttendanceScreenState
   // ============================================================
   // EMPTY STATE
   // ============================================================
+
+  String formatMinutes(int minutes) =>
+      '${minutes ~/ 60}h ${(minutes % 60).toString().padLeft(2, '0')}m';
 
   Widget emptyState() {
     return ListView(
