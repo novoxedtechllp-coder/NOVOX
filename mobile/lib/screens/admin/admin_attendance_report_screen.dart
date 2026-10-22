@@ -292,8 +292,7 @@ class _AdminAttendanceReportScreenState
     final breakMinutes =
         item["total_break_minutes"] ?? 0;
 
-    final workMinutes =
-        item["total_work_minutes"] ?? 0;
+    final workMinutes = item["total_work_minutes"];
 
     final distance =
         item["check_in_distance"];
@@ -396,7 +395,7 @@ class _AdminAttendanceReportScreenState
                 Expanded(
                   child: _info(
                     "Work",
-                    "$workMinutes min",
+                    workMinutes == null ? "No checkout" : "$workMinutes min",
                   ),
                 ),
               ],

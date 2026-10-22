@@ -540,32 +540,70 @@ def get_attendance_history(
     if not records:
         return []
 
-    active_break_starts = {
-        attendance_id: start_time
-        for attendance_id, start_time in (
-            db.query(AttendanceBreak.attendance_id, AttendanceBreak.start_time)
-            .filter(
-                AttendanceBreak.attendance_id.in_(
-                    [record.id for record in records]
-                ),
-                AttendanceBreak.end_time.is_(None),
-            )
-            .all()
+    breaks_by_attendance = {record.id: [] for record in records}
+    for attendance_break in (
+        db.query(AttendanceBreak)
+        .filter(
+            AttendanceBreak.attendance_id.in_([record.id for record in records])
         )
-    }
+        .all()
+    ):
+        breaks_by_attendance[attendance_break.attendance_id].append(attendance_break)
 
-    return [
-        {
+    current_time = now_india()
+    today = today_india()
+    history = []
+    for record in records:
+        record_breaks = breaks_by_attendance[record.id]
+        active_break = next(
+            (item for item in record_breaks if item.end_time is None),
+            None,
+        )
+        break_minutes = 0
+        for item in record_breaks:
+            if item.duration_minutes is not None:
+                break_minutes += item.duration_minutes
+            elif item.end_time is not None:
+                break_minutes += max(
+                    0,
+                    int(elapsed_between(item.start_time, item.end_time).total_seconds() // 60),
+                )
+        if active_break is not None:
+            break_minutes += max(
+                0,
+                int(elapsed_between(active_break.start_time, current_time).total_seconds() // 60),
+            )
+        elif not record_breaks:
+            break_minutes = record.total_break_minutes or 0
+
+        work_minutes = record.total_work_minutes
+        if record.checkout and record.check_in:
+            elapsed = elapsed_between(record.check_in, record.checkout)
+            work_minutes = max(
+                0,
+                int(elapsed.total_seconds() // 60) - break_minutes,
+            )
+        elif record.attendance_date == today and record.check_in:
+            elapsed = elapsed_between(record.check_in, current_time)
+            work_minutes = max(
+                0,
+                int(elapsed.total_seconds() // 60) - break_minutes,
+            )
+        elif not record.checkout:
+            # Past records without checkout have no reliable end time.
+            work_minutes = None
+
+        history.append({
             "id": record.id,
             "attendance_date": record.attendance_date,
             "check_in": record.check_in,
             "checkout": record.checkout,
             "attendance_status": record.attendance_status,
             "arrival_status": record.arrival_status,
-            "total_break_minutes": record.total_break_minutes,
-            "total_work_minutes": record.total_work_minutes,
-            "active_break": record.id in active_break_starts,
-            "current_break_start": active_break_starts.get(record.id),
-        }
-        for record in records
-    ]
+            "total_break_minutes": break_minutes,
+            "total_work_minutes": work_minutes,
+            "active_break": active_break is not None,
+            "current_break_start": active_break.start_time if active_break else None,
+        })
+
+    return history

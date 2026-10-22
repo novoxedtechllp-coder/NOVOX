@@ -303,7 +303,7 @@ class _StaffAttendanceScreenState
                   "Work",
                   item.totalWorkMinutes != null
                       ? formatMinutes(item.totalWorkMinutes!)
-                      : "-",
+                      : "No checkout",
                 ),
               ],
             ),

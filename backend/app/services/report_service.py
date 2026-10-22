@@ -10,7 +10,7 @@ from app.models.student import Student
 from app.models.staff import Staff
 from app.models.fee import StudentFee
 from app.models.salary_slip import SalarySlip
-from app.core.timezone import elapsed_between, now_india
+from app.core.timezone import elapsed_between, now_india, today_india
 
 
 def get_fee_report(db: Session):
@@ -216,11 +216,22 @@ def get_attendance_report(
                     )
 
         work_minutes = attendance.total_work_minutes
-        if attendance.check_in and not attendance.checkout:
+        if attendance.check_in and attendance.checkout:
+            elapsed_minutes = int(
+                elapsed_between(attendance.check_in, attendance.checkout).total_seconds() // 60
+            )
+            work_minutes = max(0, elapsed_minutes - break_minutes)
+        elif (
+            attendance.check_in
+            and not attendance.checkout
+            and attendance.attendance_date == today_india()
+        ):
             elapsed_minutes = int(
                 elapsed_between(attendance.check_in, now_india()).total_seconds() // 60
             )
             work_minutes = max(0, elapsed_minutes - break_minutes)
+        elif not attendance.checkout:
+            work_minutes = None
 
         results.append({
             "attendance_id": attendance.id,
@@ -232,7 +243,7 @@ def get_attendance_report(
             "attendance_status": attendance.attendance_status,
             "arrival_status": attendance.arrival_status,
             "total_break_minutes": break_minutes,
-            "total_work_minutes": work_minutes or 0,
+            "total_work_minutes": work_minutes,
         })
 
     return results
