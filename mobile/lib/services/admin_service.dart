@@ -119,6 +119,17 @@ class AdminService {
     );
   }
 
+  Future<StudentAdminModel> updateStudent(
+    int studentId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await apiClient.dio.put(
+      '${ApiConstants.adminStudents}/$studentId',
+      data: data,
+    );
+    return StudentAdminModel.fromJson(response.data);
+  }
+
   // ------------------------------------------------------------
   // DEACTIVATE STUDENT
   // ------------------------------------------------------------

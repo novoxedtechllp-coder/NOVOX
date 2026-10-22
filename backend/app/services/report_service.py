@@ -3,12 +3,14 @@ from sqlalchemy import extract
 from app.models.payment import Payment
 
 from app.models.attendance import Attendance
+from app.models.attendance_break import AttendanceBreak
 from app.models.user import User
 
 from app.models.student import Student
 from app.models.staff import Staff
 from app.models.fee import StudentFee
 from app.models.salary_slip import SalarySlip
+from app.core.timezone import elapsed_between, now_india
 
 
 def get_fee_report(db: Session):
@@ -195,6 +197,31 @@ def get_attendance_report(
     results = []
 
     for attendance, user_name in query.all():
+        break_minutes = attendance.total_break_minutes or 0
+        if not attendance.checkout:
+            breaks = (
+                db.query(AttendanceBreak)
+                .filter(AttendanceBreak.attendance_id == attendance.id)
+                .all()
+            )
+            break_minutes = sum(
+                item.duration_minutes or 0
+                for item in breaks
+            )
+            for item in breaks:
+                if item.end_time is None:
+                    break_minutes += max(
+                        0,
+                        int(elapsed_between(item.start_time, now_india()).total_seconds() // 60),
+                    )
+
+        work_minutes = attendance.total_work_minutes
+        if attendance.check_in and not attendance.checkout:
+            elapsed_minutes = int(
+                elapsed_between(attendance.check_in, now_india()).total_seconds() // 60
+            )
+            work_minutes = max(0, elapsed_minutes - break_minutes)
+
         results.append({
             "attendance_id": attendance.id,
             "user_id": attendance.user_id,
@@ -204,8 +231,8 @@ def get_attendance_report(
             "checkout": attendance.checkout,
             "attendance_status": attendance.attendance_status,
             "arrival_status": attendance.arrival_status,
-            "total_break_minutes": attendance.total_break_minutes or 0,
-            "total_work_minutes": attendance.total_work_minutes or 0,
+            "total_break_minutes": break_minutes,
+            "total_work_minutes": work_minutes or 0,
         })
 
     return results

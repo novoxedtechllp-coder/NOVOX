@@ -87,6 +87,79 @@ class _AdminStudentsState extends State<AdminStudents> {
     }
   }
 
+  Future<void> editStudent(StudentAdminModel student) async {
+    final name = TextEditingController(text: student.name);
+    final phone = TextEditingController(text: student.phone ?? '');
+    final code = TextEditingController(text: student.studentCode);
+    final course = TextEditingController(text: student.course);
+    final batch = TextEditingController(text: student.batch ?? '');
+    final guardian = TextEditingController(text: student.guardianName ?? '');
+    final guardianPhone = TextEditingController(text: student.guardianPhone ?? '');
+    bool saving = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Student'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  studentField(controller: name, label: 'Full Name', icon: Icons.person_rounded),
+                  studentField(controller: phone, label: 'Phone Number', icon: Icons.phone_rounded, keyboardType: TextInputType.phone),
+                  studentField(controller: code, label: 'Student Code', icon: Icons.badge_rounded),
+                  studentField(controller: course, label: 'Course / Degree', icon: Icons.school_rounded),
+                  studentField(controller: batch, label: 'Batch', icon: Icons.calendar_today_rounded),
+                  studentField(controller: guardian, label: 'Guardian Name', icon: Icons.family_restroom_rounded),
+                  studentField(controller: guardianPhone, label: 'Guardian Phone', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: saving ? null : () async {
+                if (name.text.trim().isEmpty || code.text.trim().isEmpty || course.text.trim().isEmpty) {
+                  showMessage('Name, student code, and course are required');
+                  return;
+                }
+                setDialogState(() => saving = true);
+                try {
+                  await adminService.updateStudent(student.id, {
+                    'name': name.text.trim(),
+                    'phone': phone.text.trim().isEmpty ? null : phone.text.trim(),
+                    'student_code': code.text.trim(),
+                    'course': course.text.trim(),
+                    'batch': batch.text.trim().isEmpty ? null : batch.text.trim(),
+                    'guardian_name': guardian.text.trim().isEmpty ? null : guardian.text.trim(),
+                    'guardian_phone': guardianPhone.text.trim().isEmpty ? null : guardianPhone.text.trim(),
+                  });
+                  if (!mounted) return;
+                  Navigator.pop(dialogContext);
+                  showMessage('Student updated successfully');
+                  await loadStudents();
+                } catch (e) {
+                  if (!mounted) return;
+                  setDialogState(() => saving = false);
+                  showMessage('Unable to update student: $e');
+                }
+              },
+              child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+    for (final controller in [name, phone, code, course, batch, guardian, guardianPhone]) {
+      controller.dispose();
+    }
+  }
+
   Future<void> showAddStudentDialog() async {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
@@ -467,11 +540,17 @@ class _AdminStudentsState extends State<AdminStudents> {
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: AppColors.textMuted),
               onSelected: (value) async {
-                if (value == "deactivate") {
+                if (value == "edit") {
+                  await editStudent(student);
+                } else if (value == "deactivate") {
                   await deactivateStudent(student);
                 }
               },
               itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: "edit",
+                  child: Row(children: [Icon(Icons.edit_rounded, size: 18, color: AppColors.primary), SizedBox(width: 8), Text("Edit Student")]),
+                ),
                 const PopupMenuItem(
                   value: "deactivate",
                   child: Row(

@@ -9,6 +9,7 @@ from app.models.user import User
 
 from app.schemas.student_admin import (
     StudentCreate,
+    StudentUpdate,
     StudentAdminResponse,
 )
 
@@ -26,6 +27,7 @@ from app.services.admin_management_service import (
     get_staff,
     deactivate_staff,
     update_staff,
+    update_student,
 )
 
 
@@ -92,6 +94,23 @@ def disable_student(
             status_code=404,
             detail=str(e),
         )
+
+
+@router.put(
+    "/students/{student_id}",
+    response_model=StudentAdminResponse,
+    dependencies=[Depends(require_role("admin"))],
+)
+def update_student_route(
+    student_id: int,
+    data: StudentUpdate,
+    db: Session = Depends(get_db),
+):
+    try:
+        return update_student(db, student_id, data)
+    except ValueError as e:
+        status_code = 400 if "already exists" in str(e) else 404
+        raise HTTPException(status_code=status_code, detail=str(e))
 
 
 # ==========================================

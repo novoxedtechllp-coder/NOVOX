@@ -21,8 +21,10 @@ class StudentCreate(BaseModel):
 class StudentUpdate(BaseModel):
     name: str | None = None
     phone: str | None = None
+    student_code: str | None = None
     course: str | None = None
     batch: str | None = None
+    joining_date: date | None = None
     guardian_name: str | None = None
     guardian_phone: str | None = None
 

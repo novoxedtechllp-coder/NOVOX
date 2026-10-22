@@ -233,6 +233,36 @@ from sqlalchemy.orm import Session
 from app.models.staff import Staff
 from app.models.user import User
 from app.schemas.staff_admin import StaffUpdate
+from app.schemas.student_admin import StudentUpdate
+
+
+def update_student(db: Session, student_id: int, data: StudentUpdate):
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise ValueError("Student not found")
+
+    user = db.query(User).filter(User.id == student.user_id).first()
+    if not user:
+        raise ValueError("Student user account not found")
+
+    updates = data.model_dump(exclude_unset=True)
+    if "student_code" in updates and updates["student_code"] != student.student_code:
+        existing = db.query(Student).filter(
+            Student.student_code == updates["student_code"],
+            Student.id != student_id,
+        ).first()
+        if existing:
+            raise ValueError("Student code already exists")
+
+    for field in ("name", "phone"):
+        if field in updates:
+            setattr(user, field, updates.pop(field))
+    for field, value in updates.items():
+        setattr(student, field, value)
+
+    db.commit()
+    db.refresh(student)
+    return _student_response(db, student, user)
 
 
 def update_staff(
