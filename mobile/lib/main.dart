@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/storage/secure_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/student/student_dashboard.dart';
@@ -24,6 +25,7 @@ class NovoxApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: "NOVOX",
       theme: AppTheme.darkTheme,
+      home: const _SavedSessionGate(),
       builder: (context, child) => Stack(
         fit: StackFit.expand,
         children: [
@@ -59,7 +61,6 @@ class NovoxApp extends StatelessWidget {
             ),
         ],
       ),
-      initialRoute: "/login",
       routes: {
         "/login": (_) => const LoginScreen(),
         "/student": (_) => const StudentDashboard(),
@@ -80,6 +81,55 @@ class NovoxApp extends StatelessWidget {
           stops: const [0, 0.58, 1],
         ),
       ),
+    );
+  }
+}
+
+class _SavedSessionGate extends StatefulWidget {
+  const _SavedSessionGate();
+
+  @override
+  State<_SavedSessionGate> createState() => _SavedSessionGateState();
+}
+
+class _SavedSessionGateState extends State<_SavedSessionGate> {
+  late final Future<List<String?>> _session = _readSession();
+
+  Future<List<String?>> _readSession() async {
+    final values = await Future.wait<String?>([
+      SecureStorage.getToken(),
+      SecureStorage.getRole(),
+    ]);
+    return values;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<String?>>(
+      future: _session,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final values = snapshot.data ?? const [null, null];
+        final token = values[0];
+        final role = values[1];
+        if (token == null || token.isEmpty) return const LoginScreen();
+
+        switch (role) {
+          case "student":
+            return const StudentDashboard();
+          case "staff":
+            return const StaffDashboard();
+          case "admin":
+            return const AdminDashboard();
+          default:
+            return const LoginScreen();
+        }
+      },
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -124,7 +125,20 @@ class _StaffDashboardState extends State<StaffDashboard> {
         loading = false;
       });
 
-      showMessage("Failed to load dashboard: $e");
+      if (e is DioException && e.response?.statusCode == 401) {
+        await SecureStorage.clear();
+        if (!mounted) return;
+        Navigator.pushNamedAndRemoveUntil(context, "/login", (_) => false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Your session expired. Please sign in again."),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      showMessage("Failed to load dashboard: ${ApiError.message(e)}");
     }
   }
 
