@@ -227,6 +227,32 @@ def deactivate_staff(
 
     return staff
 
+
+def set_account_active(db: Session, role: str, account_id: int, is_active: bool):
+    model = Student if role == "student" else Staff
+    account = db.query(model).filter(model.id == account_id).first()
+    if not account:
+        raise ValueError(f"{role.title()} not found")
+    user = db.query(User).filter(User.id == account.user_id).first()
+    if not user:
+        raise ValueError(f"{role.title()} user account not found")
+    user.is_active = is_active
+    db.commit()
+    return {"is_active": user.is_active}
+
+
+def reset_account_password(db: Session, role: str, account_id: int, password: str):
+    model = Student if role == "student" else Staff
+    account = db.query(model).filter(model.id == account_id).first()
+    if not account:
+        raise ValueError(f"{role.title()} not found")
+    user = db.query(User).filter(User.id == account.user_id).first()
+    if not user:
+        raise ValueError(f"{role.title()} user account not found")
+    user.password_hash = hash_password(password)
+    db.commit()
+    return {"message": "Password reset successfully"}
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
