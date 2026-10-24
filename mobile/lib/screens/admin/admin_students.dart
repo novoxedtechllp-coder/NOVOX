@@ -197,6 +197,7 @@ class _AdminStudentsState extends State<AdminStudents> {
     final totalFeesController = TextEditingController();
 
     bool saving = false;
+    bool showPassword = false;
 
     await showDialog(
       context: context,
@@ -227,7 +228,18 @@ class _AdminStudentsState extends State<AdminStudents> {
                         controller: passwordController,
                         label: "Password",
                         icon: Icons.lock_rounded,
-                        obscure: true,
+                        obscure: !showPassword,
+                        suffixIcon: IconButton(
+                          tooltip: showPassword ? 'Hide password' : 'Show password',
+                          onPressed: () => setDialogState(
+                            () => showPassword = !showPassword,
+                          ),
+                          icon: Icon(
+                            showPassword
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                          ),
+                        ),
                       ),
                       studentField(
                         controller: studentCodeController,
@@ -413,6 +425,7 @@ class _AdminStudentsState extends State<AdminStudents> {
     required String label,
     required IconData icon,
     bool obscure = false,
+    Widget? suffixIcon,
     TextInputType? keyboardType,
   }) {
     return Padding(
@@ -424,6 +437,7 @@ class _AdminStudentsState extends State<AdminStudents> {
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
+          suffixIcon: suffixIcon,
         ),
       ),
     );

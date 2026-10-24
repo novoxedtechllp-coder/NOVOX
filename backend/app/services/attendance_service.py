@@ -559,35 +559,38 @@ def get_attendance_history(
             (item for item in record_breaks if item.end_time is None),
             None,
         )
-        break_minutes = 0
+        completed_break_minutes = 0
         for item in record_breaks:
             if item.duration_minutes is not None:
-                break_minutes += item.duration_minutes
+                completed_break_minutes += item.duration_minutes
             elif item.end_time is not None:
-                break_minutes += max(
+                completed_break_minutes += max(
                     0,
                     int(elapsed_between(item.start_time, item.end_time).total_seconds() // 60),
                 )
+        active_break_minutes = 0
         if active_break is not None:
-            break_minutes += max(
+            active_break_minutes = max(
                 0,
                 int(elapsed_between(active_break.start_time, current_time).total_seconds() // 60),
             )
         elif not record_breaks:
-            break_minutes = record.total_break_minutes or 0
+            completed_break_minutes = record.total_break_minutes or 0
+
+        total_break_minutes = completed_break_minutes + active_break_minutes
 
         work_minutes = record.total_work_minutes
         if record.checkout and record.check_in:
             elapsed = elapsed_between(record.check_in, record.checkout)
             work_minutes = max(
                 0,
-                int(elapsed.total_seconds() // 60) - break_minutes,
+                int(elapsed.total_seconds() // 60) - total_break_minutes,
             )
         elif record.attendance_date == today and record.check_in:
             elapsed = elapsed_between(record.check_in, current_time)
             work_minutes = max(
                 0,
-                int(elapsed.total_seconds() // 60) - break_minutes,
+                int(elapsed.total_seconds() // 60) - total_break_minutes,
             )
         elif not record.checkout:
             # Past records without checkout have no reliable end time.
@@ -600,7 +603,10 @@ def get_attendance_history(
             "checkout": record.checkout,
             "attendance_status": record.attendance_status,
             "arrival_status": record.arrival_status,
-            "total_break_minutes": break_minutes,
+            # The client adds the live active-break duration to this completed
+            # total, keeping the displayed break total current without counting
+            # the same active break twice.
+            "total_break_minutes": completed_break_minutes,
             "total_work_minutes": work_minutes,
             "active_break": active_break is not None,
             "current_break_start": active_break.start_time if active_break else None,
