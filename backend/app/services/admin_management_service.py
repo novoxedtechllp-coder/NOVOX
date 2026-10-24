@@ -6,6 +6,9 @@ from app.models.user import User
 from app.models.student import Student
 from app.models.staff import Staff
 from app.models.fee import StudentFee
+from app.models.payment import Payment
+from app.models.attendance import Attendance
+from app.models.attendance_break import AttendanceBreak
 from app.core.security import hash_password
 
 
@@ -111,7 +114,7 @@ def _student_response(db: Session, student: Student, user: User) -> dict:
     }
 
 
-def deactivate_student(
+def delete_student(
     db: Session,
     student_id: int,
 ):
@@ -125,17 +128,37 @@ def deactivate_student(
     if not student:
         raise ValueError("Student not found")
 
-    user = (
-        db.query(User)
-        .filter(User.id == student.user_id)
-        .first()
-    )
+    try:
+        attendance_ids = db.query(Attendance.id).filter(
+            Attendance.user_id == student.user_id
+        )
+        fee_ids = db.query(StudentFee.id).filter(
+            StudentFee.student_id == student.id
+        )
 
-    user.is_active = False
+        db.query(AttendanceBreak).filter(
+            AttendanceBreak.attendance_id.in_(attendance_ids)
+        ).delete(synchronize_session=False)
+        db.query(Attendance).filter(
+            Attendance.user_id == student.user_id
+        ).delete(synchronize_session=False)
+        db.query(Payment).filter(
+            (Payment.student_id == student.id)
+            | (Payment.student_fee_id.in_(fee_ids))
+        ).delete(synchronize_session=False)
+        db.query(StudentFee).filter(
+            StudentFee.student_id == student.id
+        ).delete(synchronize_session=False)
+        db.delete(student)
+        db.query(User).filter(User.id == student.user_id).delete(
+            synchronize_session=False
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
-    db.commit()
-
-    return student
+    return {"message": "Student and associated data deleted successfully"}
 
 
 def create_staff(db: Session, data):

@@ -23,7 +23,7 @@ from app.schemas.staff_admin import (
 from app.services.admin_management_service import (
     create_student,
     get_students,
-    deactivate_student,
+    delete_student,
     create_staff,
     get_staff,
     deactivate_staff,
@@ -109,18 +109,18 @@ def list_students(
     "/students/{student_id}",
     dependencies=[Depends(require_role("admin"))],
 )
-def disable_student(
+def remove_student(
     student_id: int,
     db: Session = Depends(get_db),
 ):
     try:
-        deactivate_student(
+        delete_student(
             db,
             student_id,
         )
 
         return {
-            "message": "Student deactivated successfully"
+            "message": "Student and associated data deleted successfully"
         }
 
     except ValueError as e:

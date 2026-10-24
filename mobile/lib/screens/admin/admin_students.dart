@@ -59,7 +59,9 @@ class _AdminStudentsState extends State<AdminStudents> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text("Delete Student"),
-          content: Text("Delete $name? Their account will be deactivated and the student record will remain in your records."),
+          content: Text(
+            "Permanently delete $name and their fees, payments, attendance, and break records? This cannot be undone.",
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
@@ -84,7 +86,7 @@ class _AdminStudentsState extends State<AdminStudents> {
       await loadStudents();
     } catch (e) {
       if (!mounted) return;
-      showMessage("Unable to delete student: $e");
+      showMessage("Unable to delete student: ${ApiError.message(e)}");
     }
   }
 
