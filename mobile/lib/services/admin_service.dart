@@ -131,14 +131,28 @@ class AdminService {
   }
 
   // ------------------------------------------------------------
-  // DEACTIVATE STUDENT
+  // DELETE STUDENT
   // ------------------------------------------------------------
 
-  Future<void> deactivateStudent(
+  Future<void> deleteStudent(
     int studentId,
   ) async {
     await apiClient.dio.delete(
       "${ApiConstants.adminStudents}/$studentId",
+    );
+  }
+
+  Future<void> setAccountActive(String role, int id, bool isActive) async {
+    await apiClient.dio.patch(
+      '${ApiConstants.adminManagement}/$role/$id/status',
+      data: {'is_active': isActive},
+    );
+  }
+
+  Future<void> resetAccountPassword(String role, int id, String password) async {
+    await apiClient.dio.put(
+      '${ApiConstants.adminManagement}/$role/$id/password',
+      data: {'password': password},
     );
   }
 

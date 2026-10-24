@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 
+import '../../core/network/api_error.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/student_admin_model.dart';
@@ -50,15 +52,14 @@ class _AdminStudentsState extends State<AdminStudents> {
     }
   }
 
-  Future<void> deactivateStudent(StudentAdminModel student) async {
+  Future<void> deleteStudent(StudentAdminModel student) async {
+    final name = student.name.isNotEmpty ? student.name : student.studentCode;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text("Deactivate Student"),
-          content: Text(
-            "Are you sure you want to deactivate ${student.name.isNotEmpty ? student.name : student.studentCode}?",
-          ),
+          title: const Text("Delete Student"),
+          content: Text("Delete $name? Their account will be deactivated and the student record will remain in your records."),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
@@ -67,7 +68,7 @@ class _AdminStudentsState extends State<AdminStudents> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text("Deactivate"),
+              child: const Text("Delete"),
             ),
           ],
         );
@@ -77,13 +78,36 @@ class _AdminStudentsState extends State<AdminStudents> {
     if (confirmed != true) return;
 
     try {
-      await adminService.deactivateStudent(student.id);
+      await adminService.deleteStudent(student.id);
       if (!mounted) return;
-      showMessage("Student deactivated successfully");
+      showMessage("Student deleted successfully");
       await loadStudents();
     } catch (e) {
       if (!mounted) return;
-      showMessage("Unable to deactivate student: $e");
+      showMessage("Unable to delete student: $e");
+    }
+  }
+
+  Future<void> resetStudentPassword(StudentAdminModel student) async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Reset password for ${student.name}'),
+        content: TextField(controller: controller, obscureText: true, autofocus: true, decoration: const InputDecoration(labelText: 'New password (at least 6 characters)')),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Reset password'))],
+      ),
+    );
+    controller.dispose();
+    if (password == null) return;
+    if (password.length < 6) { showMessage('Password must be at least 6 characters'); return; }
+    try {
+      await adminService.resetAccountPassword('students', student.id, password);
+      if (mounted) showMessage('Student password reset successfully');
+    } catch (e) {
+      if (mounted) {
+        showMessage('Unable to reset password: ${ApiError.message(e)}');
+      }
     }
   }
 
@@ -357,8 +381,29 @@ class _AdminStudentsState extends State<AdminStudents> {
     } catch (e) {
       if (!mounted) return;
       setSaving(false);
-      showMessage("Unable to create student: $e");
+      final message = e is DioException
+          ? _studentCreateErrorMessage(e)
+          : e.toString();
+      showMessage("Unable to create student: $message");
     }
+  }
+
+  String _studentCreateErrorMessage(DioException error) {
+    final responseData = error.response?.data;
+    if (responseData is Map) {
+      final detail = responseData['detail'];
+      if (detail != null && detail.toString().trim().isNotEmpty) {
+        return detail.toString();
+      }
+      final message = responseData['message'];
+      if (message != null && message.toString().trim().isNotEmpty) {
+        return message.toString();
+      }
+    }
+    if (responseData is String && responseData.trim().isNotEmpty) {
+      return responseData;
+    }
+    return error.message ?? 'Request failed. Please try again.';
   }
 
   Widget studentField({
@@ -534,6 +579,22 @@ class _AdminStudentsState extends State<AdminStudents> {
                       ],
                     ),
                   ],
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => resetStudentPassword(student),
+                        icon: const Icon(Icons.lock_reset_rounded, size: 16),
+                        label: const Text('Reset password'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => deleteStudent(student),
+                        icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
+                        label: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -542,8 +603,10 @@ class _AdminStudentsState extends State<AdminStudents> {
               onSelected: (value) async {
                 if (value == "edit") {
                   await editStudent(student);
-                } else if (value == "deactivate") {
-                  await deactivateStudent(student);
+                } else if (value == "delete") {
+                  await deleteStudent(student);
+                } else if (value == "password") {
+                  await resetStudentPassword(student);
                 }
               },
               itemBuilder: (context) => [
@@ -551,13 +614,17 @@ class _AdminStudentsState extends State<AdminStudents> {
                   value: "edit",
                   child: Row(children: [Icon(Icons.edit_rounded, size: 18, color: AppColors.primary), SizedBox(width: 8), Text("Edit Student")]),
                 ),
+                PopupMenuItem(
+                  value: "password",
+                  child: Row(children: [Icon(Icons.lock_reset_rounded, size: 18, color: AppColors.primary), SizedBox(width: 8), Text("Reset Password")]),
+                ),
                 const PopupMenuItem(
-                  value: "deactivate",
+                  value: "delete",
                   child: Row(
                     children: [
-                      Icon(Icons.block_rounded, size: 18, color: AppColors.danger),
+                      Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
                       SizedBox(width: 8),
-                      Text("Deactivate", style: TextStyle(color: AppColors.danger)),
+                      Text("Delete Student", style: TextStyle(color: AppColors.danger)),
                     ],
                   ),
                 ),

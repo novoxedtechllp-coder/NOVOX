@@ -92,6 +92,8 @@ class ApiConstants {
   static const String adminStaff =
       "/admin/management/staff";
 
+  static const String adminManagement = "/admin/management";
+
   static const String adminGeofence =
       "/admin/geofence";
 

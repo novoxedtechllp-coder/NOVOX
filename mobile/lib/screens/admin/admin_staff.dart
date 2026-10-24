@@ -92,6 +92,50 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
     }
   }
 
+  Future<void> setStaffActive(StaffAdminModel staff, bool active) async {
+    if (!active) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Deactivate Staff'),
+          content: Text('Deactivate ${staff.name}?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Deactivate')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    try {
+      await adminService.setAccountActive('staff', staff.id, active);
+      if (!mounted) return;
+      showMessage(active ? 'Staff account activated' : 'Staff account deactivated');
+      await loadStaff();
+    } catch (e) {
+      if (mounted) showMessage('Unable to update account: ${ApiError.message(e)}');
+    }
+  }
+
+  Future<void> resetStaffPassword(StaffAdminModel staff) async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Reset password for ${staff.name}'),
+        content: TextField(controller: controller, obscureText: true, autofocus: true, decoration: const InputDecoration(labelText: 'New password (at least 6 characters)')),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Reset password'))],
+      ),
+    );
+    controller.dispose();
+    if (password == null) return;
+    if (password.length < 6) { showMessage('Password must be at least 6 characters'); return; }
+    try {
+      await adminService.resetAccountPassword('staff', staff.id, password);
+      if (mounted) showMessage('Staff password reset successfully');
+    } catch (e) { if (mounted) showMessage('Unable to reset password: ${ApiError.message(e)}'); }
+  }
+
   Future<void> showStaffDialog({StaffAdminModel? staff}) async {
     final isEditing = staff != null;
 
@@ -494,6 +538,22 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                       ],
                     ),
                   ],
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => resetStaffPassword(staff),
+                        icon: const Icon(Icons.lock_reset_rounded, size: 16),
+                        label: const Text('Reset password'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => setStaffActive(staff, !staff.isActive),
+                        icon: Icon(staff.isActive ? Icons.block_rounded : Icons.check_circle_outline, size: 16),
+                        label: Text(staff.isActive ? 'Deactivate' : 'Activate'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -508,7 +568,13 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                     await showStaffDialog(staff: staff);
                     break;
                   case "deactivate":
-                    await deactivateStaff(staff);
+                      await setStaffActive(staff, false);
+                      break;
+                    case "activate":
+                      await setStaffActive(staff, true);
+                      break;
+                    case "password":
+                      await resetStaffPassword(staff);
                     break;
                 }
               },
@@ -522,6 +588,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                       Text("Manage Salary"),
                     ],
                   ),
+                ),
+                const PopupMenuItem(
+                  value: "password",
+                  child: Row(children: [Icon(Icons.lock_reset_rounded, size: 18, color: AppColors.primary), SizedBox(width: 8), Text("Reset Password")]),
                 ),
                 const PopupMenuItem(
                   value: "edit",
@@ -543,6 +613,11 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                         Text("Deactivate", style: TextStyle(color: AppColors.danger)),
                       ],
                     ),
+                  ),
+                if (!staff.isActive)
+                  const PopupMenuItem(
+                    value: "activate",
+                    child: Row(children: [Icon(Icons.check_circle_outline, size: 18, color: AppColors.success), SizedBox(width: 8), Text("Activate Account")]),
                   ),
               ],
             ),
