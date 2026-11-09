@@ -8,8 +8,10 @@ import '../../core/network/api_error.dart';
 import '../../core/storage/secure_storage.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/attendance_model.dart';
+import '../../models/student_profile_model.dart';
 import '../../services/attendance_service.dart';
 import '../../services/fee_service.dart';
+import '../../services/student_service.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/section_heading.dart';
 import '../../widgets/responsive_grid.dart';
@@ -29,8 +31,10 @@ class StudentDashboard extends StatefulWidget {
 class _StudentDashboardState extends State<StudentDashboard> {
   late final AttendanceService attendanceService;
   late final FeeService feeService;
+  late final StudentService studentService;
 
   AttendanceModel? todayAttendance;
+  StudentProfileModel? studentProfile;
   List<dynamic> fees = [];
 
   bool loading = true;
@@ -44,6 +48,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final apiClient = ApiClient();
     attendanceService = AttendanceService(apiClient);
     feeService = FeeService(apiClient);
+    studentService = StudentService(apiClient);
     attendanceTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       final record = todayAttendance;
       final now = DateTime.now();
@@ -108,23 +113,39 @@ class _StudentDashboardState extends State<StudentDashboard> {
       loading = true;
     });
 
+    var hadLoadError = false;
+    AttendanceModel? attendance;
+    List<dynamic> studentFees = [];
+    StudentProfileModel? profile;
+
+    // Load each section independently. A failure in fees or attendance must
+    // not prevent the student's profile from appearing on the dashboard.
     try {
-      final attendance = await attendanceService.getToday();
-      final studentFees = await feeService.getMyFees();
+      attendance = await attendanceService.getToday();
+    } catch (_) {
+      hadLoadError = true;
+    }
+    try {
+      studentFees = await feeService.getMyFees();
+    } catch (_) {
+      hadLoadError = true;
+    }
+    try {
+      profile = await studentService.getProfile();
+    } catch (_) {
+      hadLoadError = true;
+    }
 
-      if (!mounted) return;
-      setState(() {
-        todayAttendance = attendance;
-        fees = studentFees;
-        loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        loading = false;
-      });
+    if (!mounted) return;
+    setState(() {
+      todayAttendance = attendance;
+      fees = studentFees;
+      studentProfile = profile;
+      loading = false;
+    });
 
-      showMessage("Failed to load dashboard: $e");
+    if (hadLoadError) {
+      showMessage("Some dashboard information could not be loaded. Refresh to try again.");
     }
   }
 
@@ -394,6 +415,121 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildStudentDetails() {
+    final profile = studentProfile;
+    if (profile == null) return const SizedBox.shrink();
+
+    final details = <Widget?>[
+      _profileDetail(Icons.school_outlined, 'Course', profile.course),
+      _profileDetail(Icons.groups_2_outlined, 'Batch', profile.batch),
+      _profileDetail(Icons.calendar_today_outlined, 'Joining date', profile.joiningDate),
+      _profileDetail(Icons.email_outlined, 'Email', profile.email),
+      _profileDetail(Icons.phone_outlined, 'Phone', profile.phone),
+      _profileDetail(Icons.person_outline_rounded, 'Guardian', profile.guardianName),
+      _profileDetail(Icons.contact_phone_outlined, 'Guardian phone', profile.guardianPhone),
+    ].whereType<Widget>().toList();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.badge_outlined, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'My Student Details',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (profile.studentCode != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    profile.studentCode!,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            profile.name,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 6),
+            ...details,
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget? _profileDetail(IconData icon, String label, String? value) {
+    if (value == null || value.isEmpty) return null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 112,
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -809,6 +945,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   buildHeader(),
+                  buildStudentDetails(),
                   buildAttendanceCard(),
                   const SizedBox(height: 24),
                   const SectionHeading(

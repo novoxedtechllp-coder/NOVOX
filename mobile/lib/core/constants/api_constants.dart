@@ -54,6 +54,9 @@ class ApiConstants {
   static const String studentDashboard =
       "/student/dashboard";
 
+  static const String studentProfile =
+      "/student/profile";
+
   static const String myFees =
       "/fees/my-fees";
 

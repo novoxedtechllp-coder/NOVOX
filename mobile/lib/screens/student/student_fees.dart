@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/download_bytes.dart';
+import '../../models/fee_model.dart';
+import '../../models/student_payment_model.dart';
 import '../../services/fee_service.dart';
 
 class StudentFeesScreen extends StatefulWidget {
@@ -58,7 +60,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen> {
         loading = false;
       });
 
-      showMessage("Failed to load fees: $e");
+      showMessage("Unable to load your fee details. Please try again.");
     }
   }
 
@@ -89,7 +91,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen> {
         paymentsLoading = false;
       });
 
-      showMessage("Failed to load payment history: $e");
+      showMessage("Unable to load payment history. Please try again.");
     }
   }
 
@@ -150,6 +152,35 @@ class _StudentFeesScreenState extends State<StudentFeesScreen> {
   dynamic field(dynamic item, String key) {
     if (item is Map<String, dynamic>) {
       return item[key];
+    }
+
+    // FeeService parses API responses into model instances. Keep supporting
+    // those typed values here; treating them as maps silently showed every
+    // amount as ₹0.00 and marked empty fees as paid.
+    if (item is FeeModel) {
+      return switch (key) {
+        'id' => item.id,
+        'student_id' => item.studentId,
+        'total_amount' => item.totalAmount,
+        'paid_amount' => item.paidAmount,
+        'pending_amount' => item.pendingAmount,
+        'status' => item.status,
+        _ => null,
+      };
+    }
+
+    if (item is StudentPaymentModel) {
+      return switch (key) {
+        'id' => item.id,
+        'student_fee_id' => item.studentFeeId,
+        'student_id' => item.studentId,
+        'amount' => item.amount,
+        'payment_method' => item.paymentMethod,
+        'transaction_id' => item.transactionId,
+        'payment_date' => item.paymentDate,
+        'receipt_number' => item.receiptNumber,
+        _ => null,
+      };
     }
 
     return null;

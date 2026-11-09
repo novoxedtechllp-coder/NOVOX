@@ -92,17 +92,53 @@ class _AdminStudentsState extends State<AdminStudents> {
 
   Future<void> resetStudentPassword(StudentAdminModel student) async {
     final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
     final password = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Reset password for ${student.name}'),
-        content: TextField(controller: controller, obscureText: true, autofocus: true, decoration: const InputDecoration(labelText: 'New password (at least 6 characters)')),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Reset password'))],
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            obscureText: true,
+            autofocus: true,
+            maxLength: 72,
+            decoration: const InputDecoration(
+              labelText: 'New password',
+              helperText: 'Use 6 to 72 characters',
+            ),
+            validator: (value) {
+              final length = value?.length ?? 0;
+              if (length < 6) return 'Enter at least 6 characters';
+              if (length > 72) return 'Use no more than 72 characters';
+              return null;
+            },
+            onFieldSubmitted: (_) {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.pop(ctx, controller.text);
+              }
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.pop(ctx, controller.text);
+              }
+            },
+            child: const Text('Reset password'),
+          ),
+        ],
       ),
     );
     controller.dispose();
     if (password == null) return;
-    if (password.length < 6) { showMessage('Password must be at least 6 characters'); return; }
     try {
       await adminService.resetAccountPassword('students', student.id, password);
       if (mounted) showMessage('Student password reset successfully');

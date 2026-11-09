@@ -46,6 +46,13 @@ class _AdminAttendanceReportScreenState
         "${date.day.toString().padLeft(2, '0')}";
   }
 
+  String formatDuration(dynamic value) {
+    final minutes = value is num
+        ? value.toInt()
+        : int.tryParse(value?.toString() ?? '') ?? 0;
+    return '${minutes ~/ 60}h ${(minutes % 60).toString().padLeft(2, '0')}m';
+  }
+
   // ============================================================
   // LOAD REPORT
   // ============================================================
@@ -389,13 +396,15 @@ class _AdminAttendanceReportScreenState
                 Expanded(
                   child: _info(
                     "Break",
-                    "$breakMinutes min",
+                    formatDuration(breakMinutes),
                   ),
                 ),
                 Expanded(
                   child: _info(
                     "Work",
-                    workMinutes == null ? "No checkout" : "$workMinutes min",
+                    workMinutes == null
+                        ? "No checkout"
+                        : formatDuration(workMinutes),
                   ),
                 ),
               ],

@@ -129,23 +129,35 @@ def delete_student(
         raise ValueError("Student not found")
 
     try:
-        attendance_ids = db.query(Attendance.id).filter(
-            Attendance.user_id == student.user_id
-        )
-        fee_ids = db.query(StudentFee.id).filter(
-            StudentFee.student_id == student.id
-        )
+        # Materialize child IDs before deleting their parent rows. This keeps
+        # the delete order explicit and avoids relying on database-specific
+        # DELETE ... IN (SELECT ...) behavior when foreign keys are enabled.
+        attendance_ids = [
+            row[0]
+            for row in db.query(Attendance.id).filter(
+                Attendance.user_id == student.user_id
+            ).all()
+        ]
+        fee_ids = [
+            row[0]
+            for row in db.query(StudentFee.id).filter(
+                StudentFee.student_id == student.id
+            ).all()
+        ]
 
-        db.query(AttendanceBreak).filter(
-            AttendanceBreak.attendance_id.in_(attendance_ids)
-        ).delete(synchronize_session=False)
+        if attendance_ids:
+            db.query(AttendanceBreak).filter(
+                AttendanceBreak.attendance_id.in_(attendance_ids)
+            ).delete(synchronize_session=False)
         db.query(Attendance).filter(
             Attendance.user_id == student.user_id
         ).delete(synchronize_session=False)
-        db.query(Payment).filter(
-            (Payment.student_id == student.id)
-            | (Payment.student_fee_id.in_(fee_ids))
-        ).delete(synchronize_session=False)
+        payment_filter = Payment.student_id == student.id
+        if fee_ids:
+            payment_filter = payment_filter | Payment.student_fee_id.in_(fee_ids)
+        db.query(Payment).filter(payment_filter).delete(
+            synchronize_session=False
+        )
         db.query(StudentFee).filter(
             StudentFee.student_id == student.id
         ).delete(synchronize_session=False)
